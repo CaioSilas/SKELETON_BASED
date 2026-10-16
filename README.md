@@ -1,27 +1,62 @@
-# SKELETON_BASED_ACTION_RECOGNTION_PARA_RECONHECIMENTO_DE_LINGUAGEM_DE_SINAIS
-Este repositório contém a implementação de um sistema de reconhecimento de sinais em Língua Brasileira de Sinais (LIBRAS) utilizando uma abordagem baseada em análise de dados de esqueleto.
+# Reconhecimento de Sinais em LIBRAS com Transformer sobre Esqueletos
 
+Sistema de reconhecimento de sinais isolados da **Língua Brasileira de Sinais (LIBRAS)** usando apenas dados de esqueleto 3D e uma arquitetura **Transformer com Multi-Head Attention**.
 
-O trabalho foi feito em conjunto com os alunos:
-Beatriz Helena de Mello Orlandi de Deus,Julia Carlos Gonzaga,Josué Villa Real
+**Resultado:** **84,1% de acurácia média (± 1,2)** em **29 sinais**, com validação cruzada 5-fold.
 
-O projeto propõe o uso de informações tridimensionais da base LibrasUFOP, extraídas por sensores e algoritmos de estimativa de pose, para capturar robustamente os gestos.
-Principais características do projeto:
+Trabalho feito em equipe com Beatriz Helena de Mello Orlandi de Deus, Julia Carlos Gonzaga e Josué Villa Real. Artigo completo em [`Artigo/`](Artigo/).
 
+## Por que esqueletos?
 
-• Utilização de dados de esqueleto: O sistema foca exclusivamente em dados de esqueleto, o que reduz a complexidade computacional em comparação com abordagens multimodais.
+Em vez de processar vídeo RGB, o modelo usa só as coordenadas (x, y, z) de **25 articulações** do corpo em cada frame. A entrada fica muito menor, o custo computacional cai e o modelo fica menos sensível a fundo, roupa e iluminação.
 
-• Arquitetura Transformer com Multi-Head Attention: A arquitetura central do sistema é um Transformer com mecanismo de Multi-Head Attention, que permite o processamento paralelo e a captura de relações temporais de longo alcance nos dados de esquelético. Este mecanismo aprende a ponderar a importância de diferentes partes da sequência de dados de esqueleto, identificando quais articulações e momentos são mais relevantes para o reconhecimento do sinal [our conversation history].
+## Dados
 
-• Pré-processamento robusto: O projeto inclui etapas de filtragem e padronização dos dados de esqueleto, além da extração de derivadas temporais (velocidade e aceleração) para enriquecer a representação dos movimentos.
+- Base **LibrasUFOP**, versão com esqueletos (incluída em [`Base de Dados/`](Base%20de%20Dados/))
+- Cerca de **1.600 amostras** segmentadas a partir de arquivos de anotação (frame inicial, frame final e rótulo)
+- **29 classes** de sinais
 
-• Embeddings posicionais: A ordem temporal dos frames é preservada através da adição de embeddings posicionais à entrada do Transformer.
+## Pipeline
 
-• Avaliação rigorosa: A metodologia emprega validação cruzada K-Fold para uma avaliação robusta da generalização do modelo. As métricas de avaliação incluem acurácia, precisão, revocação e F1-score.
+1. **Leitura e segmentação:** os arquivos de anotação definem o intervalo de frames de cada sinal.
+2. **Normalização:** coordenadas centralizadas em uma articulação de referência e correção de frames com articulações faltando.
+3. **Padding:** sequências ajustadas para 100 frames, com máscara para ignorar o preenchimento.
+4. **Engenharia de atributos:** concatenação de **velocidade e aceleração** (derivadas temporais) às posições, o que ajuda a separar gestos parecidos.
+5. **Modelo:**
+   - embedding posicional para preservar a ordem dos frames
+   - Multi-Head Attention (4 cabeças) com conexão residual e LayerNorm
+   - camadas densas com regularização L2, Dropout e BatchNorm
+   - Global Average Pooling no tempo e saída softmax
+6. **Treino:** Adam, EarlyStopping e ReduceLROnPlateau.
+7. **Avaliação:** K-Fold (k = 5) com acurácia, precisão, revocação e F1 (macro), além de matriz de confusão.
 
-• Resultados promissores: Os experimentos demonstraram uma alta acurácia no reconhecimento dos sinais, evidenciando a eficácia da abordagem Transformer para esta tarefa. A inclusão de derivadas temporais contribuiu para uma discriminação mais precisa entre gestos sutis.
+## Resultados
 
-• Simplicidade e eficiência: Ao focar em dados de esqueleto e utilizar a arquitetura Transformer, busca-se um sistema eficiente e de baixo custo computacional.
-Este projeto visa aprimorar a comunicação e promover a inclusão social da comunidade surda através do desenvolvimento de tecnologias de reconhecimento automático da Língua Brasileira de Sinais.
+| Fold | Acurácia |
+|---|---|
+| 1 | 86% |
+| 2 | 83% |
+| 3 | 82% |
+| 4 | 84% |
+| 5 | 85% |
+| **Média** | **84,1% ± 1,2** |
 
-Para trabalhos futuros, são consideradas a fusão multimodal com dados RGB e de profundidade, e a exploração de estratégias de aprendizado semi-supervisionado para reduzir a dependência de grandes volumes de dados anotados.
+## Limitações e próximos passos
+
+- **A divisão dos folds é por amostra, não por sinalizante.** A mesma pessoa pode aparecer no treino e no teste, então o resultado tende a ser otimista para pessoas novas. O próximo experimento é avaliar com *leave-one-signer-out*.
+- Fusão com dados RGB e de profundidade
+- Aprendizado semissupervisionado para reduzir a dependência de dados anotados
+
+## Como executar
+
+```bash
+pip install tensorflow scikit-learn numpy matplotlib seaborn
+```
+
+1. Extraia `Base de Dados/LibrasUfop-skeleton.rar`.
+2. Abra `Codigo/transformer.ipynb` e ajuste o caminho da base na primeira célula.
+3. Execute as células em ordem.
+
+## Tecnologias
+
+Python · TensorFlow / Keras · scikit-learn · NumPy · Matplotlib · Seaborn
